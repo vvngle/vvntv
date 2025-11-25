@@ -59,3 +59,41 @@ try {
   console.error('写入 runtime.ts 失败:', err);
   process.exit(1);
 }
+// scripts/convert-config.js 底部追加这 30 行（保留原有所有代码）
+
+// —— 开始追加 ——
+const extraCode = `
+// === MoonTV 增强功能：自动重试 + 备用源切换 ===
+// 自动重试（默认 3 次）
+export async function fetchWithRetry(url: string, retries = CONFIG.retry_attempts || 3): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, { 
+        cache: 'force-cache',
+        next: { revalidate: CONFIG.cache_time || 7200 }
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      if (i === retries - 1) console.log('[MoonTV] 主源彻底失效 →', url);
+      else await new Promise(r => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+
+  // 重试完还不行 → 自动切换备用源
+  for (const key in CONFIG.api_site) {
+    const site = CONFIG.api_site[key];
+    if (site.api === url && site.backup) {
+      console.log('[MoonTV] 主源失效，自动切换备用源 →', site.backup);
+      try {
+        const res = await fetch(site.backup, { cache: 'force-cache' });
+        if (res.ok) return await res.json();
+      } catch (_) {}
+    }
+  }
+
+  throw new Error('所有源都挂了');
+}
+`;
+
+fs.appendFileSync(runtimePath, '\n' + extraCode);
+console.log('已注入 fetchWithRetry + 备用源切换功能');
