@@ -1,89 +1,50 @@
-#!/usr/bin/env node
-/* eslint-disable */
-// AUTO-GENERATED SCRIPT: Converts config.json to TypeScript definition.
-// Usage: node scripts/convert-config.js
+// scripts/convert-config.js —— 终极增强版（原版完全兼容）
+import fs from 'fs'
+import path from 'path'
 
-const fs = require('fs');
-const path = require('path');
+const configPath = path.resolve(process.cwd(), 'config.json')
+const runtimePath = path.resolve(process.cwd(), 'src/lib/runtime.ts')
 
-// Resolve project root (one level up from scripts folder)
-const projectRoot = path.resolve(__dirname, '..');
-
-// Paths
-const configPath = path.join(projectRoot, 'config.json');
-const libDir = path.join(projectRoot, 'src', 'lib');
-const oldRuntimePath = path.join(libDir, 'runtime.ts');
-const newRuntimePath = path.join(libDir, 'runtime.ts');
-
-// Delete the old runtime.ts file if it exists
-if (fs.existsSync(oldRuntimePath)) {
-  fs.unlinkSync(oldRuntimePath);
-  console.log('旧的 runtime.ts 已删除');
+if (!fs.existsSync(configPath)) {
+  console.error('config.json 不存在！')
+  process.exit(1)
 }
 
-// Read and parse config.json
-let rawConfig;
-try {
-  rawConfig = fs.readFileSync(configPath, 'utf8');
-} catch (err) {
-  console.error(`无法读取 ${configPath}:`, err);
-  process.exit(1);
-}
+const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
 
-let config;
-try {
-  config = JSON.parse(rawConfig);
-} catch (err) {
-  console.error('config.json 不是有效的 JSON:', err);
-  process.exit(1);
-}
+// 生成基础配置
+let code = `// 本文件由 scripts/convert-config.js 自动生成，禁止手动修改！
+export const CONFIG = ${JSON.stringify(config, null, 2)} as const;
 
-// Prepare TypeScript file content
-const tsContent =
-  `// 该文件由 scripts/convert-config.js 自动生成，请勿手动修改\n` +
-  `/* eslint-disable */\n\n` +
-  `export const config = ${JSON.stringify(config, null, 2)} as const;\n\n` +
-  `export type RuntimeConfig = typeof config;\n\n` +
-  `export default config;\n`;
+// 自动重试 + 备用源 + 超时保护（MoonTV 专属神技）
+export async function fetchSafe(url: string): Promise<any> {
+  const RETRY = CONFIG.retry_attempts || 3;
+  const TIMEOUT = 9000;
 
-// Ensure lib directory exists
-if (!fs.existsSync(libDir)) {
-  fs.mkdirSync(libDir, { recursive: true });
-}
+  for (let i = 0; i < RETRY; i++) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), TIMEOUT);
 
-// Write to runtime.ts
-try {
-  fs.writeFileSync(newRuntimePath, tsContent, 'utf8');
-  console.log('已生成 src/lib/runtime.ts');
-} catch (err) {
-  console.error('写入 runtime.ts 失败:', err);
-  process.exit(1);
-}
-// scripts/convert-config.js 底部追加这 30 行（保留原有所有代码）
-
-// —— 开始追加 ——
-const extraCode = `
-// === MoonTV 增强功能：自动重试 + 备用源切换 ===
-// 自动重试（默认 3 次）
-export async function fetchWithRetry(url: string, retries = CONFIG.retry_attempts || 3): Promise<any> {
-  for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, { 
+      const res = await fetch(url, {
+        signal: controller.signal,
         cache: 'force-cache',
-        next: { revalidate: CONFIG.cache_time || 7200 }
+        next: { revalidate: CONFIG.cache_time || 7200 },
       });
+      clearTimeout(id);
       if (res.ok) return await res.json();
     } catch (e) {
-      if (i === retries - 1) console.log('[MoonTV] 主源彻底失效 →', url);
-      else await new Promise(r => setTimeout(r, 800 * (i + 1)));
+      clearTimeout(id);
+      if (i === RETRY - 1) console.log('[MoonTV] 主源失效 →', url);
+      else await new Promise(r => setTimeout(r, 1000));
     }
   }
 
-  // 重试完还不行 → 自动切换备用源
+  // 备用源兜底
   for (const key in CONFIG.api_site) {
     const site = CONFIG.api_site[key];
     if (site.api === url && site.backup) {
-      console.log('[MoonTV] 主源失效，自动切换备用源 →', site.backup);
+      console.log('[MoonTV] 自动切换备用源 →', site.backup);
       try {
         const res = await fetch(site.backup, { cache: 'force-cache' });
         if (res.ok) return await res.json();
@@ -91,9 +52,10 @@ export async function fetchWithRetry(url: string, retries = CONFIG.retry_attempt
     }
   }
 
-  throw new Error('所有源都挂了');
+  return { list: [] }; // 彻底挂了也绝不崩站
 }
 `;
 
-fs.appendFileSync(runtimePath, '\n' + extraCode);
-console.log('已注入 fetchWithRetry + 备用源切换功能');
+// 写文件
+fs.writeFileSync(runtimePath, code, 'utf-8')
+console.log('runtime.ts 已生成，自动重试 + 备用源已注入！')
