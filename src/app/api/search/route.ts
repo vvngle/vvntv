@@ -1,55 +1,62 @@
-import { NextResponse } from 'next/server';
+// src/app/api/search/route.ts
+import { NextResponse } from 'next/server'
+import config from '@/config.json'
 
-import { getCacheTime, getConfig } from '@/lib/config';
-import { searchFromApi } from '@/lib/downstream';
-import { yellowWords } from '@/lib/yellow';
+const CACHE_TIME = config.cache_time || 7200
+const RETRY_TIMES = config.retry_attempts || 3
 
-export const runtime = 'edge';
+// 神级 fetch：自动重试 + 超时保护 + 备用源兜底
+async function fetchSafe(url: string) {
+  for (let i = 0; i < RETRY_TIMES; i++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 9000) // 9秒超时
+
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        cache: 'force-cache',
+        next: { revalidate: CACHE_TIME },
+      })
+      clearTimeout(timeout)
+      if (res.ok) return await res.json()
+    } catch (e) {
+      clearTimeout(timeout)
+      if (i === RETRY_TIMES - 1) console.log('[MoonTV] 主源彻底失效 →', url)
+      else await new Promise(r => setTimeout(r, 1000))
+    }
+  }
+
+  // 主源挂了 → 找 backup
+  for (const key in config.api_site) {
+    const site = config.api_site[key]
+    if (site.api === url && site.backup) {
+      console.log('[MoonTV] 自动切换备用源 →', site.backup)
+      try {
+        const res = await fetch(site.backup, { cache: 'force-cache' })
+        if (res.ok) return await res.json()
+      } catch (_) {}
+    }
+  }
+
+  return { list: [] } // 都挂了也绝不崩站
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q');
+  const { searchParams } = new URL(request.url)
+  const q = searchParams.get('q')?.trim()
+  if (!q) return NextResponse.json({ list: [], total: 0 })
 
-  if (!query) {
-    const cacheTime = await getCacheTime();
-    return NextResponse.json(
-      { results: [] },
-      {
-        headers: {
-          'Cache-Control': `public, max-age=${cacheTime}, s-maxage=${cacheTime}`,
-          'CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
-          'Vercel-CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
-        },
-      }
-    );
-  }
+  const results = await Promise.all(
+    Object.values(config.api_site).map(async (site: any) => {
+      const url = `${site.api}?wd=${encodeURIComponent(q)}`
+      const data = await fetchSafe(url)
+      return (data.list || []).map((item: any) => ({
+        ...item,
+        $source: site.name,
+      }))
+    })
+  )
 
-  const config = await getConfig();
-  const apiSites = config.SourceConfig.filter((site) => !site.disabled);
-  const searchPromises = apiSites.map((site) => searchFromApi(site, query));
-
-  try {
-    const results = await Promise.all(searchPromises);
-    let flattenedResults = results.flat();
-    if (!config.SiteConfig.DisableYellowFilter) {
-      flattenedResults = flattenedResults.filter((result) => {
-        const typeName = result.type_name || '';
-        return !yellowWords.some((word: string) => typeName.includes(word));
-      });
-    }
-    const cacheTime = await getCacheTime();
-
-    return NextResponse.json(
-      { results: flattenedResults },
-      {
-        headers: {
-          'Cache-Control': `public, max-age=${cacheTime}, s-maxage=${cacheTime}`,
-          'CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
-          'Vercel-CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
-        },
-      }
-    );
-  } catch (error) {
-    return NextResponse.json({ error: '搜索失败' }, { status: 500 });
-  }
+  const list = results.flat().slice(0, 80)
+  return NextResponse.json({ list, total: list.length })
 }
