@@ -1,5 +1,8 @@
 {
   "cache_time": 7200,
+  "retry_attempts": 3,
+  "ad_skip_threshold": 6,
+  "default_theme": "auto",
   "api_site": {
     "1080zyku": {
       "api": "https://api.1080zyku.com/inc/api_mac10.php",
