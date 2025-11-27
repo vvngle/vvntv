@@ -4,6 +4,18 @@
   "ad_skip_threshold": 6,
   "default_theme": "auto",
   "api_site": {
+    "iqiyi": {
+      "api": "https://www.iqiyizyapi.com/api.php/provide/vod",
+      "name": "iqiyi资源",
+      "detail": "https://www.iqiyizyapi.com",
+      "is_adult": false
+    },
+    "baidu": {
+      "api": "https://api.apibdzy.com/api.php/provide/vod",
+      "name": "百度云资源",
+      "detail": "https://api.apibdzy.com",
+      "is_adult": false
+    },
     "1080zyku": {
       "api": "https://api.1080zyku.com/inc/api_mac10.php",
       "name": "TV-1080资源",
