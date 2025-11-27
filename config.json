@@ -4,13 +4,13 @@
   "ad_skip_threshold": 6,
   "default_theme": "auto",
   "api_site": {
-    iqiyi: {
-        api: 'https://www.iqiyizyapi.com/api.php/provide/vod',
-        name: 'iqiyi资源',
+    "iqiyi": {
+        "api": "https://www.iqiyizyapi.com/api.php/provide/vod",
+        "name": "iqiyi资源",
     }, 
-    baidu: {
-        api: 'https://api.apibdzy.com/api.php/provide/vod',
-        name: '百度云资源'
+    "baidu": {
+        "api": "https://api.apibdzy.com/api.php/provide/vod",
+        "name": "百度云资源"
     },
     "1080zyku": {
       "api": "https://api.1080zyku.com/inc/api_mac10.php",
