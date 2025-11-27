@@ -4,6 +4,14 @@
   "ad_skip_threshold": 6,
   "default_theme": "auto",
   "api_site": {
+    iqiyi: {
+        api: 'https://www.iqiyizyapi.com/api.php/provide/vod',
+        name: 'iqiyi资源',
+    }, 
+    baidu: {
+        api: 'https://api.apibdzy.com/api.php/provide/vod',
+        name: '百度云资源'
+    },
     "1080zyku": {
       "api": "https://api.1080zyku.com/inc/api_mac10.php",
       "name": "TV-1080资源",
@@ -334,12 +342,6 @@
       "detail": "https://api.souavzy.vip",
       "is_adult": true
     },
-    "lbapi9": {
-      "api": "https://lbapi9.com/api.php/provide/vod",
-      "name": "AV-乐播资源",
-      "detail": "",
-      "is_adult": true
-    },
     "aosikazy": {
       "api": "https://aosikazy.com/api.php/provide/vod",
       "name": "AV-奥斯卡资源",
@@ -376,12 +378,6 @@
       "detail": "",
       "is_adult": true
     },
-    "kxgav": {
-      "api": "https://www.kxgav.com/api/json.php",
-      "name": "AV-白嫖资源",
-      "detail": "https://www.kxgav.com",
-      "is_adult": true
-    },
     "jingpinx": {
       "api": "https://www.jingpinx.com/api.php/provide/vod",
       "name": "AV-精品资源",
@@ -416,12 +412,6 @@
       "api": "https://apilj.com/api.php/provide/vod",
       "name": "AV-辣椒资源",
       "detail": "https://apilj.com",
-      "is_adult": true
-    },
-    "gdlsp": {
-      "api": "https://www.gdlsp.com/api/json.php",
-      "name": "AV-香奶儿资源",
-      "detail": "https://www.gdlsp.com",
       "is_adult": true
     },
     "shayuapi": {
